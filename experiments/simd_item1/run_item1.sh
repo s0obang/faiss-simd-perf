@@ -28,6 +28,7 @@ run_case() {
   local py_mod_path
   py_mod_path="$(cat "${py_path_file}")"
   local out_json="${RESULT_DIR}/${case_name}.json"
+  local out_csv="${RESULT_DIR}/${case_name}.csv"
   local out_perf="${RESULT_DIR}/${case_name}.perf.csv"
 
   echo "==> Running ${case_name}"
@@ -43,6 +44,7 @@ run_case() {
   local -a bench_cmd=(
     python experiments/simd_item1/bench_item1_e2e.py
     --output "${out_json}"
+    --output-csv "${out_csv}"
   )
   bench_cmd+=("${bench_args_arr[@]}")
 
@@ -109,6 +111,22 @@ if "cycles" in summary["no_simd"] and "cycles" in summary["autovec_only"]:
 
 out = {"results": summary, "derived": derived}
 (result_dir / "summary.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+
+# Also save a flat CSV summary for easy spreadsheet import
+rows = []
+for case_name, metrics in summary.items():
+    row = {"case": case_name}
+    row.update(metrics)
+    rows.append(row)
+
+if rows:
+    keys = sorted({k for row in rows for k in row.keys()})
+    with (result_dir / "summary.csv").open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=keys)
+        w.writeheader()
+        for r in rows:
+            w.writerow(r)
+
 print(json.dumps(out, indent=2))
 PY
 

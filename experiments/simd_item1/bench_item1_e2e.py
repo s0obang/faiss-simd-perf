@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import csv
 import json
 import os
 import time
@@ -28,6 +29,7 @@ def ivecs_read(path):
 def parse_args():
     p = argparse.ArgumentParser(description="E2E benchmark for item1 autovec study")
     p.add_argument("--output", required=True)
+    p.add_argument("--output-csv", default="")
     p.add_argument("--seed", type=int, default=1234)
     p.add_argument("--d", type=int, default=128)
     p.add_argument("--nb", type=int, default=200000)
@@ -189,6 +191,18 @@ def main():
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
+
+    if args.output_csv:
+        flat = {}
+        for k, v in result["config"].items():
+            flat[f"config.{k}"] = v
+        for k, v in result["metrics"].items():
+            flat[f"metrics.{k}"] = v
+        os.makedirs(os.path.dirname(args.output_csv), exist_ok=True)
+        with open(args.output_csv, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=list(flat.keys()))
+            w.writeheader()
+            w.writerow(flat)
 
     print(json.dumps(result, indent=2))
 

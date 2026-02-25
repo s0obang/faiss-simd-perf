@@ -34,15 +34,27 @@ run_case() {
   export PYTHONPATH="${py_mod_path}"
   export FAISS_SIMD_LEVEL=NONE
   export OMP_NUM_THREADS="${OMP_THREADS}"
+  local -a bench_args_arr=()
+  if [[ -n "${BENCH_ARGS}" ]]; then
+    # shellcheck disable=SC2206
+    bench_args_arr=(${BENCH_ARGS})
+  fi
+
+  local -a bench_cmd=(
+    python experiments/simd_item1/bench_item1_e2e.py
+    --output "${out_json}"
+  )
+  bench_cmd+=("${bench_args_arr[@]}")
 
   if command -v perf >/dev/null 2>&1; then
-    perf stat -x, -e cycles,instructions,task-clock \
+    if ! perf stat -x, -e cycles,instructions,task-clock \
       -o "${out_perf}" -- \
-      python experiments/simd_item1/bench_item1_e2e.py \
-      --output "${out_json}" ${BENCH_ARGS}
+      "${bench_cmd[@]}"; then
+      echo "perf stat failed for ${case_name}; rerunning without perf." >&2
+      "${bench_cmd[@]}"
+    fi
   else
-    python experiments/simd_item1/bench_item1_e2e.py \
-      --output "${out_json}" ${BENCH_ARGS}
+    "${bench_cmd[@]}"
   fi
 }
 

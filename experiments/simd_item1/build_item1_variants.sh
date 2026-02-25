@@ -26,16 +26,27 @@ detect_no_vec_flags() {
 build_one() {
   local build_dir="$1"
   local extra_flags="$2"
+  local -a cmake_args
+  cmake_args=(
+    -S .
+    -B "${build_dir}"
+    -G Ninja
+    -DCMAKE_BUILD_TYPE=Release
+    -DFAISS_ENABLE_GPU=OFF
+    -DFAISS_ENABLE_PYTHON=ON
+    -DFAISS_ENABLE_EXTRAS=OFF
+    -DBUILD_TESTING=OFF
+    -DFAISS_OPT_LEVEL=dd
+  )
+
+  # Keep toolchain default Release flags and append only extra flags for
+  # this variant.
+  if [[ -n "${extra_flags}" ]]; then
+    cmake_args+=("-DCMAKE_CXX_FLAGS_RELEASE:STRING=${extra_flags}")
+  fi
 
   echo "==> Configuring ${build_dir}"
-  cmake -S . -B "${build_dir}" -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DFAISS_ENABLE_GPU=OFF \
-    -DFAISS_ENABLE_PYTHON=ON \
-    -DFAISS_ENABLE_EXTRAS=OFF \
-    -DBUILD_TESTING=OFF \
-    -DFAISS_OPT_LEVEL=dd \
-    -DCMAKE_CXX_FLAGS_RELEASE="${extra_flags}"
+  cmake "${cmake_args[@]}"
 
   echo "==> Building faiss + swigfaiss (${build_dir})"
   cmake --build "${build_dir}" -j "${JOBS}" --target faiss swigfaiss

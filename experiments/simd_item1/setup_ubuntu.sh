@@ -26,7 +26,10 @@ python3 -m venv .venv-faiss-simd
 source .venv-faiss-simd/bin/activate
 
 python -m pip install --upgrade pip wheel setuptools
-python -m pip install numpy
+python -m pip install "cmake>=3.24" numpy
+
+echo "Using CMake from: $(which cmake)"
+cmake --version | head -n 1
 
 echo "Setup complete. Activate with:"
 echo "  source .venv-faiss-simd/bin/activate"

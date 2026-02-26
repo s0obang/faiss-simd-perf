@@ -68,11 +68,45 @@ def make_data(seed, nb, nt, nq, d):
     return xb, xt, xq
 
 
+def resolve_sift_paths(dataset_dir):
+    # Support both naming conventions:
+    # 1) sift1m_base/query/groundtruth/learn
+    # 2) sift_base/query/groundtruth/learn
+    patterns = [
+        (
+            "sift1m_base.fvecs",
+            "sift1m_query.fvecs",
+            "sift1m_groundtruth.ivecs",
+            "sift1m_learn.fvecs",
+        ),
+        (
+            "sift_base.fvecs",
+            "sift_query.fvecs",
+            "sift_groundtruth.ivecs",
+            "sift_learn.fvecs",
+        ),
+    ]
+
+    for base_name, query_name, gt_name, learn_name in patterns:
+        base_path = os.path.join(dataset_dir, base_name)
+        query_path = os.path.join(dataset_dir, query_name)
+        gt_path = os.path.join(dataset_dir, gt_name)
+        learn_path = os.path.join(dataset_dir, learn_name)
+        if (
+            os.path.exists(base_path)
+            and os.path.exists(query_path)
+            and os.path.exists(gt_path)
+        ):
+            return base_path, query_path, gt_path, learn_path
+
+    raise RuntimeError(
+        "Could not find supported SIFT files in dataset-dir. "
+        "Expected either sift1m_* or sift_* naming."
+    )
+
+
 def load_sift1m_from_dir(dataset_dir, train_from_base):
-    base_path = os.path.join(dataset_dir, "sift1m_base.fvecs")
-    query_path = os.path.join(dataset_dir, "sift1m_query.fvecs")
-    gt_path = os.path.join(dataset_dir, "sift1m_groundtruth.ivecs")
-    train_path = os.path.join(dataset_dir, "sift1m_learn.fvecs")
+    base_path, query_path, gt_path, train_path = resolve_sift_paths(dataset_dir)
 
     xb = fvecs_read(base_path)
     xq = fvecs_read(query_path)

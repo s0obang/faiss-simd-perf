@@ -39,10 +39,10 @@ build_one() {
     -DFAISS_OPT_LEVEL=dd
   )
 
-  # Keep toolchain default Release flags and append only extra flags for
-  # this variant.
+  # Keep toolchain default Release flags (-O3/-DNDEBUG, etc.) and add only
+  # variant-specific flags (e.g., vectorization on/off controls).
   if [[ -n "${extra_flags}" ]]; then
-    cmake_args+=("-DCMAKE_CXX_FLAGS_RELEASE:STRING=${extra_flags}")
+    cmake_args+=("-DCMAKE_CXX_FLAGS:STRING=${extra_flags}")
   fi
 
   echo "==> Configuring ${build_dir}"

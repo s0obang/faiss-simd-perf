@@ -59,16 +59,23 @@ BENCH_ARGS="--dataset-dir dataset/sift1m --k 10 --nprobe 16 --omp-threads 1" \
 bash experiments/simd_item2/run_item2.sh
 ```
 
+Choose index family at runtime:
+
+```bash
+INDEX_METHOD=ivfpq   # or ivfflat
+bash experiments/simd_item2/run_item2.sh
+```
+
 Results are written to:
 
-- `experiments/simd_item2/results/autovec_only.json`
-- `experiments/simd_item2/results/intrinsics_avx512.json`
-- `experiments/simd_item2/results/summary.json`
+- `experiments/simd_item2/results/autovec_only_<index>.json`
+- `experiments/simd_item2/results/intrinsics_avx512_<index>.json`
+- `experiments/simd_item2/results/summary_<index>.json`
 
 If `perf` is available and permitted:
 
-- `experiments/simd_item2/results/autovec_only.perf.csv`
-- `experiments/simd_item2/results/intrinsics_avx512.perf.csv`
+- `experiments/simd_item2/results/autovec_only_<index>.perf.csv`
+- `experiments/simd_item2/results/intrinsics_avx512_<index>.perf.csv`
 
 ## 4) Run Dsub Sweep
 

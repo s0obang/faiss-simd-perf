@@ -61,14 +61,21 @@ bash experiments/simd_item1/run_item1.sh
 
 Results are written to:
 
-- `experiments/simd_item1/results/no_simd.json`
-- `experiments/simd_item1/results/autovec_only.json`
-- `experiments/simd_item1/results/summary.json`
+- `experiments/simd_item1/results/no_simd_<index>.json`
+- `experiments/simd_item1/results/autovec_only_<index>.json`
+- `experiments/simd_item1/results/summary_<index>.json`
 
 If `perf` is available and permitted:
 
-- `experiments/simd_item1/results/no_simd.perf.csv`
-- `experiments/simd_item1/results/autovec_only.perf.csv`
+- `experiments/simd_item1/results/no_simd_<index>.perf.csv`
+- `experiments/simd_item1/results/autovec_only_<index>.perf.csv`
+
+Choose index family at runtime:
+
+```bash
+INDEX_METHOD=ivfpq   # or ivfflat
+bash experiments/simd_item1/run_item1.sh
+```
 
 ## 4) Notes
 

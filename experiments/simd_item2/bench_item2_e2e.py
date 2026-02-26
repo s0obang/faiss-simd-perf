@@ -40,6 +40,12 @@ def parse_args():
     p.add_argument("--m", type=int, default=16)
     p.add_argument("--nbits", type=int, default=8)
     p.add_argument("--nprobe", type=int, default=16)
+    p.add_argument(
+        "--index-type",
+        choices=["ivfpq", "ivfflat"],
+        default="ivfpq",
+        help="Index family to benchmark",
+    )
     p.add_argument("--batch-size", type=int, default=256)
     p.add_argument("--latency-queries", type=int, default=1000)
     p.add_argument("--omp-threads", type=int, default=1)
@@ -176,7 +182,10 @@ def main():
 
     # ANN index under test
     quantizer = faiss.IndexFlatL2(args.d)
-    index = faiss.IndexIVFPQ(quantizer, args.d, args.nlist, args.m, args.nbits)
+    if args.index_type == "ivfpq":
+        index = faiss.IndexIVFPQ(quantizer, args.d, args.nlist, args.m, args.nbits)
+    else:
+        index = faiss.IndexIVFFlat(quantizer, args.d, args.nlist, faiss.METRIC_L2)
     assert not index.is_trained
     index.train(xt)
     index.add(xb)
@@ -207,6 +216,7 @@ def main():
             "m": args.m,
             "nbits": args.nbits,
             "nprobe": args.nprobe,
+            "index_type": args.index_type,
             "batch_size": args.batch_size,
             "latency_queries": lq,
             "omp_threads": args.omp_threads,

@@ -14,6 +14,7 @@ mkdir -p "${RESULT_DIR}"
 
 OMP_THREADS="${OMP_THREADS:-1}"
 BENCH_ARGS="${BENCH_ARGS:-}"
+INDEX_METHOD="${INDEX_METHOD:-ivfpq}"
 
 run_case() {
   local case_name="$1"
@@ -27,9 +28,9 @@ run_case() {
 
   local py_mod_path
   py_mod_path="$(cat "${py_path_file}")"
-  local out_json="${RESULT_DIR}/${case_name}.json"
-  local out_csv="${RESULT_DIR}/${case_name}.csv"
-  local out_perf="${RESULT_DIR}/${case_name}.perf.csv"
+  local out_json="${RESULT_DIR}/${case_name}_${INDEX_METHOD}.json"
+  local out_csv="${RESULT_DIR}/${case_name}_${INDEX_METHOD}.csv"
+  local out_perf="${RESULT_DIR}/${case_name}_${INDEX_METHOD}.perf.csv"
 
   echo "==> Running ${case_name}"
   export PYTHONPATH="${py_mod_path}"
@@ -45,6 +46,7 @@ run_case() {
     python experiments/simd_item1/bench_item1_e2e.py
     --output "${out_json}"
     --output-csv "${out_csv}"
+    --index-type "${INDEX_METHOD}"
   )
   bench_cmd+=("${bench_args_arr[@]}")
 
@@ -66,6 +68,7 @@ run_case "autovec_only" "build_dd_autovec_on"
 python - <<'PY'
 import csv
 import json
+import os
 from pathlib import Path
 
 result_dir = Path("experiments/simd_item1/results")
@@ -88,8 +91,8 @@ def load_metrics(case_name):
     return out
 
 summary = {
-    "no_simd": load_metrics("no_simd"),
-    "autovec_only": load_metrics("autovec_only"),
+    "no_simd": load_metrics(f"no_simd_{os.environ['INDEX_METHOD']}"),
+    "autovec_only": load_metrics(f"autovec_only_{os.environ['INDEX_METHOD']}"),
 }
 
 def ratio(a, b):
@@ -109,8 +112,10 @@ if "cycles" in summary["no_simd"] and "cycles" in summary["autovec_only"]:
         summary["autovec_only"]["cycles"], summary["no_simd"]["cycles"]
     )
 
-out = {"results": summary, "derived": derived}
-(result_dir / "summary.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+out = {"results": summary, "derived": derived, "index_method": os.environ["INDEX_METHOD"]}
+(result_dir / f"summary_{os.environ['INDEX_METHOD']}.json").write_text(
+    json.dumps(out, indent=2), encoding="utf-8"
+)
 
 # Also save a flat CSV summary for easy spreadsheet import
 rows = []
@@ -121,7 +126,9 @@ for case_name, metrics in summary.items():
 
 if rows:
     keys = sorted({k for row in rows for k in row.keys()})
-    with (result_dir / "summary.csv").open("w", newline="", encoding="utf-8") as f:
+    with (result_dir / f"summary_{os.environ['INDEX_METHOD']}.csv").open(
+        "w", newline="", encoding="utf-8"
+    ) as f:
         w = csv.DictWriter(f, fieldnames=keys)
         w.writeheader()
         for r in rows:
@@ -130,4 +137,4 @@ if rows:
 print(json.dumps(out, indent=2))
 PY
 
-echo "Done. See ${RESULT_DIR}/summary.json"
+echo "Done. See ${RESULT_DIR}/summary_${INDEX_METHOD}.json"

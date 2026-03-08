@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -14,6 +14,45 @@ mkdir -p "${BASE_RESULT_DIR}"
 
 BUILD_DIR="${BUILD_DIR:-build_dd_autovec_on}"
 PYTHONPATH_FILE="${BUILD_DIR}/PYTHONPATH.txt"
+resolve_python_path() {
+  local requested_build_dir="$1"
+  local build_dir
+  local p
+
+  local -a candidates=()
+  if [[ -n "${requested_build_dir}" ]]; then
+    candidates+=("${requested_build_dir}")
+  fi
+  candidates+=(
+    "build_dd_autovec_on"
+    "build_dd_avx512_on"
+    "build_dd_on"
+    "build"
+  )
+
+  for build_dir in "${candidates[@]}"; do
+    if [[ ! -d "${build_dir}" ]]; then
+      continue
+    fi
+
+    # trim CR if any (some environments export CRLF text through files)
+    if [[ -f "${build_dir}/PYTHONPATH.txt" ]]; then
+      p="$(tr -d '\r' < "${build_dir}/PYTHONPATH.txt" | awk 'NF{print $1}')"
+      if [[ -n "${p}" && -d "${p}" ]]; then
+        echo "${p}"
+        return
+      fi
+    fi
+
+    p="$(find "${build_dir}" -path '*/faiss/python/build/lib*' -type d 2>/dev/null | head -n 1)"
+    if [[ -n "${p}" ]]; then
+      echo "${p}"
+      return
+    fi
+  done
+
+  echo ""
+}
 
 COMMON_BENCH_ARGS="${COMMON_BENCH_ARGS:---k 10 --nprobe 16 --omp-threads 1 --train-from-base 100000}"
 OMP_THREADS="${OMP_THREADS:-1}"
@@ -63,20 +102,18 @@ run_case() {
   )
   bench_cmd+=("${bench_args_arr[@]}")
 
-  local -a env_cmd=(
-    PYTHONPATH="${PYTHON_PATH}"
-    FAISS_SIMD_LEVEL=AVX512
-    OMP_NUM_THREADS="${OMP_THREADS}"
-  )
-
-  ("${env_cmd[@]}" ${bench_cmd[@]})
+  PYTHONPATH="${PYTHON_PATH}" \
+    FAISS_SIMD_LEVEL=AVX512 \
+    OMP_NUM_THREADS="${OMP_THREADS}" \
+    "${bench_cmd[@]}"
 }
 
 if [[ "${AGGREGATE_ONLY}" == "1" ]]; then
   echo "AGGREGATE_ONLY=1: skipping benchmark runs."
 else
-  if [[ ! -f "${PYTHONPATH_FILE}" ]]; then
-    echo "Missing ${PYTHONPATH_FILE}. Build first with build_item2_variants.sh." >&2
+  PYTHON_PATH="$(resolve_python_path "${BUILD_DIR}")"
+  if [[ -z "${PYTHON_PATH}" || ! -d "${PYTHON_PATH}" ]]; then
+    echo "Failed to resolve built python path from ${BUILD_DIR}. Rebuild with build_item2_variants.sh." >&2
     exit 1
   fi
 

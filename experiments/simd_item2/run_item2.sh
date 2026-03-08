@@ -72,7 +72,7 @@ import json
 import os
 from pathlib import Path
 
-result_dir = Path("experiments/simd_item2/results")
+result_dir = Path(os.environ.get("RESULT_DIR", "experiments/simd_item2/results"))
 
 def load_metrics(case_name):
     j = json.loads((result_dir / f"{case_name}.json").read_text(encoding="utf-8"))

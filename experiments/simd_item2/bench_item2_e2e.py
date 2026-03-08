@@ -3,6 +3,7 @@ import argparse
 import csv
 import json
 import os
+import glob
 import threading
 import time
 
@@ -76,10 +77,9 @@ def make_data(seed, nb, nt, nq, d):
 
 
 def resolve_sift_paths(dataset_dir):
-    # Support both naming conventions:
-    # 1) sift1m_base/query/groundtruth/learn
-    # 2) sift_base/query/groundtruth/learn
+    # Support a wide range of benchmark naming styles.
     patterns = [
+        # explicit 1: explicit naming variations used by this repo
         (
             "sift1m_base.fvecs",
             "sift1m_query.fvecs",
@@ -87,10 +87,10 @@ def resolve_sift_paths(dataset_dir):
             "sift1m_learn.fvecs",
         ),
         (
-            "gist_base.fvecs",
-            "gist_query.fvecs",
-            "gist_groundtruth.ivecs",
-            "gist_learn.fvecs",
+            "sift_base.fvecs",
+            "sift_query.fvecs",
+            "sift_groundtruth.ivecs",
+            "sift_learn.fvecs",
         ),
         (
             "gist1m_base.fvecs",
@@ -99,13 +99,28 @@ def resolve_sift_paths(dataset_dir):
             "gist1m_learn.fvecs",
         ),
         (
-            "sift_base.fvecs",
-            "sift_query.fvecs",
-            "sift_groundtruth.ivecs",
-            "sift_learn.fvecs",
+            "gist_base.fvecs",
+            "gist_query.fvecs",
+            "gist_groundtruth.ivecs",
+            "gist_learn.fvecs",
+        ),
+        # explicit 2: legacy/alternate names with dataset prefix
+        (
+            "base.fvecs",
+            "query.fvecs",
+            "groundtruth.ivecs",
+            "learn.fvecs",
+        ),
+        # explicit 3: plain 128-bit naming occasionally used in scripts
+        (
+            "train.fvecs",
+            "query.fvecs",
+            "gt.ivecs",
+            "learn.fvecs",
         ),
     ]
 
+    # 1) direct exact matches
     for base_name, query_name, gt_name, learn_name in patterns:
         base_path = os.path.join(dataset_dir, base_name)
         query_path = os.path.join(dataset_dir, query_name)
@@ -118,9 +133,39 @@ def resolve_sift_paths(dataset_dir):
         ):
             return base_path, query_path, gt_path, learn_path
 
+    # 2) fallback: pick by filename pattern from available files.
+    # This keeps the script working with minor naming differences (ex: dataset scripts).
+    # We prefer files that contain explicit dataset type + role keywords.
+    base_candidates = sorted(
+        glob.glob(os.path.join(dataset_dir, "*base*.fvecs"))
+    )
+    query_candidates = sorted(
+        glob.glob(os.path.join(dataset_dir, "*query*.fvecs"))
+    )
+    gt_candidates = sorted(
+        glob.glob(os.path.join(dataset_dir, "*groundtruth*.ivecs"))
+        + glob.glob(os.path.join(dataset_dir, "*gt*.ivecs"))
+    )
+    if not gt_candidates:
+        gt_candidates = sorted(glob.glob(os.path.join(dataset_dir, "*.ivecs")))
+
+    if base_candidates and query_candidates and gt_candidates:
+        base_path = base_candidates[0]
+        query_path = query_candidates[0]
+        gt_path = gt_candidates[0]
+        # keep train file optional; if not found fallback to base slice in caller.
+        learn_path = os.path.join(dataset_dir, "learn.fvecs")
+        fallback_learn = sorted(glob.glob(os.path.join(dataset_dir, "*learn*.fvecs")))
+        if fallback_learn:
+            learn_path = fallback_learn[0]
+        return base_path, query_path, gt_path, learn_path
+
     raise RuntimeError(
         "Could not find supported SIFT files in dataset-dir. "
-        "Expected either sift1m_* or sift_* naming."
+        "Expected one of: "
+        "sift1m_*.fvecs/*.ivecs, sift_*.fvecs/*.ivecs, "
+        "gist1m_*.fvecs/.ivecs, gist_*.fvecs/.ivecs, "
+        "or at least files matching *base*.fvecs, *query*.fvecs, *groundtruth*.ivecs"
     )
 
 

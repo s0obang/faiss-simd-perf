@@ -89,8 +89,46 @@ Sweep outputs:
 
 - per-case folders under `experiments/simd_item2/sweep_results/`
 - merged summary:
-  - `experiments/simd_item2/sweep_results/sweep_summary.json`
-  - `experiments/simd_item2/sweep_results/sweep_summary.csv`
+- `experiments/simd_item2/sweep_results/sweep_summary.json`
+- `experiments/simd_item2/sweep_results/sweep_summary.csv`
+
+### Dsub sweep (recommended for this question)
+
+To sweep `dsub` with recall + latency + query-memory (avg/max RSS) metrics:
+
+```bash
+SWEEP_MODE=fixed_m \
+DSUB_VALUES="2 4 8 16 32" \
+COMMON_BENCH_ARGS="--k 10 --nprobe 16 --omp-threads 1 --train-from-base 100000" \
+OMP_THREADS=1 \
+INDEX_METHOD=ivfpq \
+FIXED_M=16 \
+bash experiments/simd_item2/run_item2_dsub_sweep.sh
+```
+
+Output:
+
+- case results under `experiments/simd_item2/sweep_results_dsub/`
+- merged:
+  - `experiments/simd_item2/sweep_results_dsub/sweep_summary_ivfpq.json`
+  - `experiments/simd_item2/sweep_results_dsub/sweep_summary_ivfpq.csv`
+
+The merged summary includes per-case:
+
+- `autovec/avx512` latency (`p50_ms`, `p95_ms`)
+- `autovec/avx512` recall (`recall_at_k`)
+- `autovec/avx512` throughput (`qps`)
+- query RSS metrics in MiB:
+  - `query_memory_avg_mb`, `query_memory_max_mb`: combined query workload (throughput + latency)
+  - `query_search_memory_*`: throughput batch-search phase
+  - `query_latency_memory_*`: single-query latency phase
+- speedup/ratio columns for qps, p50 latency, cycles, and memory.
+
+Notes:
+
+- `SWEEP_MODE=fixed_m` varies `d = m * dsub` (recommended when you want to test `dsub` from small to large).
+- `SWEEP_MODE=fixed_d` keeps `d` constant and skips non-divisible `dsub` values.
+- For fixed-d datasets (e.g. SIFT1M), set `SWEEP_MODE=fixed_d` and keep `d` matching the dataset dimension.
 
 ## 5) Notes
 

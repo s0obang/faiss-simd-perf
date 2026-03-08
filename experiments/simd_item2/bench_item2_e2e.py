@@ -3,6 +3,7 @@ import argparse
 import csv
 import json
 import os
+import threading
 import time
 
 import numpy as np
@@ -136,6 +137,58 @@ def recall_at_k(i_pred, i_gt):
     return total / i_pred.shape[0]
 
 
+def get_rss_bytes():
+    # Linux-only helper for process RSS in bytes.
+    try:
+        with open("/proc/self/statm", "r", encoding="utf-8") as f:
+            parts = f.readline().strip().split()
+        if len(parts) < 2:
+            return None
+        rss_pages = int(parts[1])
+        page_size = os.sysconf("SC_PAGE_SIZE")
+        return rss_pages * page_size
+    except (OSError, ValueError):
+        return None
+
+
+class QueryMemoryTracker:
+    def __init__(self, interval_sec=0.01):
+        self.interval_sec = interval_sec
+        self._samples = []
+        self._running = threading.Event()
+        self._thread = None
+
+    def __enter__(self):
+        self._running.set()
+        self._thread = threading.Thread(target=self._run)
+        self._thread.daemon = True
+        self._thread.start()
+        return self
+
+    def _run(self):
+        while self._running.is_set():
+            rss = get_rss_bytes()
+            if rss is not None:
+                self._samples.append(rss)
+            time.sleep(self.interval_sec)
+
+    def __exit__(self, exc_type, exc, tb):
+        self._running.clear()
+        if self._thread is not None:
+            self._thread.join()
+
+    def stats(self):
+        if not self._samples:
+            return {"avg_mb": 0.0, "max_mb": 0.0, "samples": 0}
+        arr = np.asarray(self._samples, dtype=np.float64)
+        mib = 1024.0 * 1024.0
+        return {
+            "avg_mb": float(arr.mean() / mib),
+            "max_mb": float(arr.max() / mib),
+            "samples": int(arr.size),
+        }
+
+
 def timed_search(index, xq, k, batch_size):
     nq = xq.shape[0]
     i_all = np.empty((nq, k), dtype=np.int64)
@@ -195,12 +248,35 @@ def main():
     _ = index.search(xq[: min(200, args.nq)], args.k)
 
     # Throughput / total search time
-    total_s, _, i_pred = timed_search(index, xq, args.k, args.batch_size)
-    qps = float(xq.shape[0]) / total_s
+    search_mem_tracker = QueryMemoryTracker()
+    with search_mem_tracker:
+        total_s, _, i_pred = timed_search(index, xq, args.k, args.batch_size)
+    search_mem = search_mem_tracker.stats()
 
     # Single-query latency distribution on a subset
     lq = min(args.latency_queries, xq.shape[0])
-    lats = per_query_latency(index, xq[:lq], args.k)
+    latency_mem_tracker = QueryMemoryTracker()
+    with latency_mem_tracker:
+        lats = per_query_latency(index, xq[:lq], args.k)
+    latency_mem = latency_mem_tracker.stats()
+    qps = float(xq.shape[0]) / total_s
+
+    # Use the sampled RSS over the combined query workload
+    # (throughput batch + per-query latency phase).
+    combined_mem = {
+        "avg_mb": 0.0,
+        "max_mb": 0.0,
+        "samples": 0,
+    }
+    if search_mem["samples"] + latency_mem["samples"] > 0:
+        total_samples = search_mem["samples"] + latency_mem["samples"]
+        combined_mem["samples"] = total_samples
+        combined_mem["avg_mb"] = (
+            (search_mem["avg_mb"] * search_mem["samples"]
+             + latency_mem["avg_mb"] * latency_mem["samples"])
+            / total_samples
+        )
+        combined_mem["max_mb"] = max(search_mem["max_mb"], latency_mem["max_mb"])
 
     rec = recall_at_k(i_pred, i_gt[:, : args.k])
 
@@ -229,6 +305,15 @@ def main():
             "latency_p50_ms": float(np.percentile(lats, 50)),
             "latency_p95_ms": float(np.percentile(lats, 95)),
             "recall_at_k": rec,
+            "query_memory_avg_mb": combined_mem["avg_mb"],
+            "query_memory_max_mb": combined_mem["max_mb"],
+            "query_memory_samples": combined_mem["samples"],
+            "query_search_memory_avg_mb": search_mem["avg_mb"],
+            "query_search_memory_max_mb": search_mem["max_mb"],
+            "query_search_memory_samples": search_mem["samples"],
+            "query_latency_memory_avg_mb": latency_mem["avg_mb"],
+            "query_latency_memory_max_mb": latency_mem["max_mb"],
+            "query_latency_memory_samples": latency_mem["samples"],
         },
     }
 

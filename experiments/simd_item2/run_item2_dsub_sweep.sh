@@ -22,6 +22,7 @@ INDEX_METHOD="${INDEX_METHOD:-ivfpq}"
 SWEEP_MODE="${SWEEP_MODE:-fixed_m}"
 FIXED_D="${FIXED_D:-128}"
 FIXED_M="${FIXED_M:-16}"
+AGGREGATE_ONLY="${AGGREGATE_ONLY:-0}"
 
 DSUB_VALUES="${DSUB_VALUES:-2 4 8 16 32}"
 if [[ "${DSUB_VALUES}" == *","* ]]; then
@@ -34,38 +35,42 @@ if [[ ${#DSUB_LIST[@]} -eq 0 ]]; then
   exit 1
 fi
 
-for dsub in "${DSUB_LIST[@]}"; do
-  if (( dsub <= 0 )); then
-    echo "Skip invalid dsub=${dsub}."
-    continue
-  fi
+if [[ "${AGGREGATE_ONLY}" == "1" ]]; then
+  echo "AGGREGATE_ONLY=1: skipping benchmark runs."
+else
+  for dsub in "${DSUB_LIST[@]}"; do
+    if (( dsub <= 0 )); then
+      echo "Skip invalid dsub=${dsub}."
+      continue
+    fi
 
-  case "${SWEEP_MODE}" in
-    fixed_d)
-      d="${FIXED_D}"
-      if (( d % dsub != 0 )); then
-        echo "Skip d=${d} with dsub=${dsub} because d % dsub != 0." >&2
-        continue
-      fi
-      m=$((d / dsub))
-      ;;
-    fixed_m|*)
-      m="${FIXED_M}"
-      d=$((m * dsub))
-      ;;
-  esac
+    case "${SWEEP_MODE}" in
+      fixed_d)
+        d="${FIXED_D}"
+        if (( d % dsub != 0 )); then
+          echo "Skip d=${d} with dsub=${dsub} because d % dsub != 0." >&2
+          continue
+        fi
+        m=$((d / dsub))
+        ;;
+      fixed_m|*)
+        m="${FIXED_M}"
+        d=$((m * dsub))
+        ;;
+    esac
 
-  case_dir="${BASE_RESULT_DIR}/d${d}_m${m}_dsub${dsub}_idx${INDEX_METHOD}"
-  mkdir -p "${case_dir}"
+    case_dir="${BASE_RESULT_DIR}/d${d}_m${m}_dsub${dsub}_idx${INDEX_METHOD}"
+    mkdir -p "${case_dir}"
 
-  echo "==> Sweep case d=${d} m=${m} dsub=${dsub}"
-  export RESULT_DIR="${case_dir}"
-  export INDEX_METHOD="${INDEX_METHOD}"
-  export OMP_THREADS="${OMP_THREADS}"
-  export OMP_NUM_THREADS="${OMP_THREADS}"
-  export BENCH_ARGS="${COMMON_BENCH_ARGS} --d ${d} --m ${m}"
-  bash experiments/simd_item2/run_item2.sh
-done
+    echo "==> Sweep case d=${d} m=${m} dsub=${dsub}"
+    export RESULT_DIR="${case_dir}"
+    export INDEX_METHOD="${INDEX_METHOD}"
+    export OMP_THREADS="${OMP_THREADS}"
+    export OMP_NUM_THREADS="${OMP_THREADS}"
+    export BENCH_ARGS="${COMMON_BENCH_ARGS} --d ${d} --m ${m}"
+    bash experiments/simd_item2/run_item2.sh
+  done
+fi
 
 python - <<'PY'
 import csv

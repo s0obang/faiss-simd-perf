@@ -43,7 +43,7 @@ def parse_args():
     p.add_argument("--nprobe", type=int, default=16)
     p.add_argument(
         "--index-type",
-        choices=["ivfpq", "ivfflat"],
+        choices=["ivfpq", "ivfflat", "ivfpq_fastscan"],
         default="ivfpq",
         help="Index family to benchmark",
     )
@@ -85,6 +85,18 @@ def resolve_sift_paths(dataset_dir):
             "sift1m_query.fvecs",
             "sift1m_groundtruth.ivecs",
             "sift1m_learn.fvecs",
+        ),
+        (
+            "gist_base.fvecs",
+            "gist_query.fvecs",
+            "gist_groundtruth.ivecs",
+            "gist_learn.fvecs",
+        ),
+        (
+            "gist1m_base.fvecs",
+            "gist1m_query.fvecs",
+            "gist1m_groundtruth.ivecs",
+            "gist1m_learn.fvecs",
         ),
         (
             "sift_base.fvecs",
@@ -237,6 +249,13 @@ def main():
     quantizer = faiss.IndexFlatL2(args.d)
     if args.index_type == "ivfpq":
         index = faiss.IndexIVFPQ(quantizer, args.d, args.nlist, args.m, args.nbits)
+    elif args.index_type == "ivfpq_fastscan":
+        if args.nbits != 4:
+            print(
+                f"[warn] ivfpq_fastscan requires nbits=4. Forced from {args.nbits} to 4."
+            )
+            args.nbits = 4
+        index = faiss.IndexIVFPQFastScan(quantizer, args.d, args.nlist, args.m, args.nbits)
     else:
         index = faiss.IndexIVFFlat(quantizer, args.d, args.nlist, faiss.METRIC_L2)
     assert not index.is_trained

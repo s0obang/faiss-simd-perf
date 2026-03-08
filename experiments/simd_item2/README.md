@@ -51,6 +51,18 @@ With SIFT1M files in `dataset/sift1m` (expected file names):
 - `sift1m_base.fvecs`
 - `sift1m_query.fvecs`
 - `sift1m_groundtruth.ivecs`
+- `sift1m_learn.fvecs`
+
+For GIST1M files in `dataset/gist1m`, these are also supported:
+
+- `gist1m_base.fvecs`
+- `gist1m_query.fvecs`
+- `gist1m_groundtruth.ivecs`
+- `gist1m_learn.fvecs`
+- `gist_base.fvecs`
+- `gist_query.fvecs`
+- `gist_groundtruth.ivecs`
+- `gist_learn.fvecs`
 
 run:
 

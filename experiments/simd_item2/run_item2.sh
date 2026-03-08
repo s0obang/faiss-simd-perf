@@ -10,6 +10,7 @@ if [[ -z "${VIRTUAL_ENV:-}" ]]; then
 fi
 
 RESULT_DIR="${RESULT_DIR:-experiments/simd_item2/results}"
+export RESULT_DIR
 mkdir -p "${RESULT_DIR}"
 
 OMP_THREADS="${OMP_THREADS:-1}"
@@ -75,7 +76,13 @@ from pathlib import Path
 result_dir = Path(os.environ.get("RESULT_DIR", "experiments/simd_item2/results"))
 
 def load_metrics(case_name):
-    j = json.loads((result_dir / f"{case_name}.json").read_text(encoding="utf-8"))
+    metric_path = result_dir / f"{case_name}.json"
+    if not metric_path.exists():
+        existing = sorted(str(p.name) for p in result_dir.iterdir() if p.is_file())
+        raise FileNotFoundError(
+            f"{metric_path} not found. Files in {result_dir}: {existing}"
+        )
+    j = json.loads(metric_path.read_text(encoding="utf-8"))
     out = dict(j["metrics"])
     perf_path = result_dir / f"{case_name}.perf.csv"
     if perf_path.exists():

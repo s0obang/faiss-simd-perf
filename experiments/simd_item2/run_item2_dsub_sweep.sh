@@ -61,6 +61,7 @@ for dsub in "${DSUB_LIST[@]}"; do
   echo "==> Sweep case d=${d} m=${m} dsub=${dsub}"
   export RESULT_DIR="${case_dir}"
   export INDEX_METHOD="${INDEX_METHOD}"
+  export OMP_THREADS="${OMP_THREADS}"
   export OMP_NUM_THREADS="${OMP_THREADS}"
   export BENCH_ARGS="${COMMON_BENCH_ARGS} --d ${d} --m ${m}"
   bash experiments/simd_item2/run_item2.sh

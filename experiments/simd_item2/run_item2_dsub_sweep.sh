@@ -71,6 +71,7 @@ python - <<'PY'
 import csv
 import json
 import os
+import re
 from pathlib import Path
 
 base = Path("experiments/simd_item2/sweep_results_dsub")
@@ -88,12 +89,11 @@ for case_dir in sorted(base.glob(f"d*_m*_dsub*_idx{index_method}")):
     autovec = result_map.get("autovec_only", {})
     avx512 = result_map.get("intrinsics_avx512", {})
 
-    parts = case_dir.name.replace("d", "").split("_m")
-    d = int(parts[0])
-    m_str, dsub_part = parts[1].split("_dsub")
-    dsub_str, _idx = dsub_part.split("_idx")
-    m = int(m_str)
-    dsub = int(dsub_str)
+    match = re.match(r"^d(\d+)_m(\d+)_dsub(\d+)_idx[^/\\]+$", case_dir.name)
+    if not match:
+        print(f"Skip unknown case directory: {case_dir}")
+        continue
+    d, m, dsub = map(int, match.groups())
 
     def ratio(a, b):
         return a / b if b else None
